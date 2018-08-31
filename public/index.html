@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<meta charset="UTF-8"/>
+<html>
+<head>
+    <script src="Graphics/twgl.js-master/dist/4.x/twgl-full.min.js"></script>
+    <script src="Graphics/Project/Objects/Cubes.js"></script>
+    <script src="Graphics/Project/Objects/Player.js"></script>
+    <script src="Graphics/Project/Objects/Numbers.js"></script>
+    <script src="Graphics/Project/Objects/Ground.js"></script>
+    <script src="Graphics/Project/main.js"></script>
+</head>
+<body>
+<div>
+    <canvas id="canvas"></canvas>
+    <br>
+    <button onclick="createProblem()">Create Problem</button>
+</div>
+<div id="root">
+</div>
+
+<script id="ground-vs" type="x-shader/x-vertex">#version 300 es
+		layout(location = 0) in vec3 a_position;
+        layout(location = 1) in vec2 a_tex;
+        uniform mat4 view;
+        uniform mat4 proj;
+        uniform mat4 model;
+        out vec3 fPos;
+        out vec2 fTex;
+		void main(void){
+		    gl_PointSize = 10.0;
+			gl_Position = proj*view*model*vec4(a_position, 1.0);
+			fPos = a_position;
+			fTex = a_tex;
+		}
+	</script>
+<script id="ground-fs" type="x-shader/x-fragment">#version 300 es
+		precision highp float;
+		out vec4 finalColor;
+		in vec3 fPos;
+		in vec2 fTex;
+		uniform sampler2D uTexture;
+		void main(void) {
+			finalColor = texture(uTexture,fTex);
+		}
+</script>
+
+<script id="vs" type="x-shader/x-vertex">#version 300 es
+		layout(location = 0) in vec3 a_position;
+        layout(location = 1) in float bone_id;
+		layout(location = 2) in vec3 a_color;
+		layout(location = 3) in vec2 tex_coords;
+        uniform vec2 texOffset;
+		out vec2 fTex;
+		out vec3 fColor;
+        uniform mat4 view;
+        uniform mat4 proj;
+        uniform mat4 model;
+		uniform mat4 bone[20];
+		void main(void){
+		    fColor = a_color;
+		    fTex = tex_coords;
+		    int id = int(bone_id);
+		    vec4 newVertex;
+		    newVertex = (bone[id]*vec4(a_position,1.0));
+			gl_Position = proj*view*vec4(newVertex.xyz,1.0);
+		}
+	</script>
+
+<script id="fs" type="x-shader/x-fragment">#version 300 es
+		precision highp float;
+		out vec4 finalColor;
+        in vec3 fColor;
+        in vec2 fTex;
+        uniform sampler2D uTexture;
+		void main(void) {
+			finalColor = vec4(fColor,1.0)*texture(uTexture,fTex);
+		}
+</script>
+
+<script id="cube-vs" type="x-shader/x-vertex">
+        #version 300 es
+		layout(location = 0) in vec3 a_position;
+        layout(location = 1) in vec3 a_color;
+        layout(location = 2) in vec2 a_tex;
+        layout(location = 3) in float a_fractY;
+        uniform mat4 view;
+        uniform mat4 proj;
+        uniform mat4 model;
+		out vec3 fPos;
+		out vec3 fColor;
+		out vec2 fTex;
+		out vec4 fragPos;
+		out float fractY;
+        uniform sampler2D uTexture;
+		void main(void){
+			fragPos = model*vec4(a_position, 1.0);
+            gl_Position = proj*view*fragPos;
+		    fPos = a_position;
+		    fColor = a_color;
+		    fTex = a_tex;
+		    fractY = a_fractY;
+		}
+</script>
+<script id="cube-fs" type="x-shader/x-fragment">#version 300 es
+		precision highp float;
+		out vec4 finalColor;
+        in vec3 fColor;
+        in vec3 fPos;
+        in vec2 fTex;
+        in vec4 fragPos;
+        in float fractY;
+        uniform sampler2D uTexture;
+		void main(void) {
+            vec2 f = fract(fTex*vec2(1.0,fractY));
+			finalColor = vec4(fColor.x,fColor.y,fColor.z+fTex.y/8.0,1.0)*texture(uTexture,f);
+
+		}
+</script>
+<script id="number-vs" type="x-shader/x-vertex">
+        #version 300 es
+		layout(location = 0) in vec3 a_position;
+        layout(location = 1) in vec3 a_color;
+        layout(location = 2) in vec3 a_color2;
+        uniform mat4 view;
+        uniform mat4 proj;
+        uniform mat4 model;
+		out vec3 fPos;
+		out vec3 fColor;
+        out vec3 fColor2;
+
+		void main(void){
+			gl_Position = proj*view*model*vec4(a_position, 1.0);
+		    fPos = a_position;
+		    fColor = a_color;
+            fColor2 = a_color2;
+
+		}
+	</script>
+<script id="number-fs" type="x-shader/x-fragment">#version 300 es
+		precision highp float;
+        in vec3 fPos;
+        in vec3 fColor;
+        in vec3 fColor2;
+
+        out vec4 finalColor;
+        uniform float time;
+    float random (in vec2 _st) {
+         return fract(sin(dot(_st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+    }
+
+    float noise (in vec2 _st) {
+        vec2 i = floor(_st);
+        vec2 f = fract(_st);
+
+        // Four corners in 2D of a tile
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+
+        vec2 u = f * f * (3.0 - 2.0 * f);
+
+        return mix(a, b, u.x) +
+                (c - a)* u.y * (1.0 - u.x) +
+                (d - b) * u.x * u.y;
+    }
+
+		void main(void) {
+
+		    vec3 color = vec3(0.1,0.55,1.0);
+		    vec2 XZ = fPos.xz;
+		    vec2 st = gl_FragCoord.xy/vec2(64.0,64.0);
+		    float rnd = random(floor(XZ*128.0+64.0*fPos.y));
+		    float r = max(0.0,noise(floor(st*32.0))-0.8);
+            float r2 = max(0.0,noise(floor(st*64.0))-0.8);
+            vec3 col = vec3(0.25,.25,.25);
+			finalColor = vec4(rnd*fColor2+2.0*r2*normalize(fColor),1.0);
+		}
+
+</script>
+<script id="water-vs" type="x-shader/x-vertex">#version 300 es
+		layout(location = 0) in vec3 a_position;
+		layout(location = 1) in vec3 a_color;
+		layout(location = 2) in vec2 tex_coords;
+        uniform mat4 view;
+        uniform mat4 proj;
+        uniform mat4 model;
+        uniform vec2 texOffset;
+		out vec2 fTex;
+		out vec3 fColor;
+		out vec3 fPos;
+		void main(void){
+		    fColor = a_color;
+		    fTex = tex_coords;
+			gl_Position = proj*view*model*vec4(a_position, 1.0);
+		    fPos = a_position;
+		}
+	</script>
+<script id="water-fs" type="x-shader/x-fragment">#version 300 es
+		precision highp float;
+        in vec2 fTex;
+        in vec3 fColor;
+        in vec3 fPos;
+        uniform sampler2D uTexture;
+        uniform float time;
+        out vec4 finalColor;
+
+    float random (in vec2 _st) {
+         return fract(sin(dot(_st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+    }
+
+    float noise (in vec2 _st) {
+        vec2 i = floor(_st);
+        vec2 f = fract(_st);
+
+        // Four corners in 2D of a tile
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+
+        vec2 u = f * f * (3.0 - 2.0 * f);
+
+        return mix(a, b, u.x) +
+                (c - a)* u.y * (1.0 - u.x) +
+                (d - b) * u.x * u.y;
+    }
+
+		void main(void) {
+
+		    vec3 color = vec3(0.1,0.55,1.0);
+		    vec2 XZ = fPos.xz;
+		    XZ.x -= time*.00001;
+		    XZ.y += .05*sin(time*.0001);
+		    float r = .75+.25*noise(XZ*1024.0);
+            vec3 col = vec3(0.3,.7,1.0);
+			finalColor = vec4(r*col,1.0);
+		}
+
+</script>
+<script id="fog-vs" type="x-shader/x-vertex">
+        #version 300 es
+		layout(location = 0) in vec3 a_position;
+        layout(location = 1) in vec2 a_scale;
+
+        uniform mat4 view;
+        uniform mat4 proj;
+        uniform mat4 model;
+		out vec3 fPos;
+		out vec2 fScale;
+		void main(void){
+			gl_Position = proj*view*model*vec4(a_position, 1.0);
+		    fPos = a_position;
+		    fScale = a_scale;
+		}
+</script>
+<script id="fog-fs" type="x-shader/x-fragment">
+    #version 300 es
+    precision highp float;
+    uniform float time;
+    in vec3 fPos;
+    in vec2 fScale;
+    out vec4 finalColor;
+    float random (in vec2 _st) {
+         return fract(sin(dot(_st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+    }
+
+// Based on Morgan McGuire @morgan3d
+// https://www.shadertoy.com/view/4dS3Wd
+    float noise (in vec2 _st) {
+        vec2 i = floor(_st);
+        vec2 f = fract(_st);
+
+        // Four corners in 2D of a tile
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+
+        vec2 u = f * f * (3.0 - 2.0 * f);
+
+        return mix(a, b, u.x) +
+                (c - a)* u.y * (1.0 - u.x) +
+                (d - b) * u.x * u.y;
+    }
+
+    #define NUM_OCTAVES 8
+
+    float fbm ( in vec2 _st) {
+        float v = 0.0;
+        float a = 0.5;
+        vec2 shift = vec2(100.0);
+        // Rotate to reduce axial bias
+        mat2 rot = mat2(cos(0.5), sin(0.5),
+                        -sin(0.5), cos(0.50));
+        for (int i = 0; i < NUM_OCTAVES; ++i) {
+            v += a * noise(_st);
+            _st = rot * _st * 2.0 + shift;
+            a *= 0.5;
+        }
+        return v;
+    }
+
+    void main() {
+        vec2 st = gl_FragCoord.xy/vec2(1024.0,1024.0);
+        st.x += .00001*time;
+        vec3 color = vec3(0.0);
+
+        vec2 q = vec2(0.);
+        q.x = fbm( st + .00001*time);
+        q.y = fbm( st + vec2(1.0+.00001*time));
+
+        vec2 r = vec2(0.);
+        r.x = fbm( st + 1.*q + vec2(.7,.92) );
+        r.y = fbm( st + 1.*q + vec2(.83,.28)  );
+
+        float f = fbm(st+r);
+
+    color = mix(vec3(0.0,0.7,1.0),
+                vec3(0.0,0.7,1.0),
+                clamp((f*f)*4.0,0.0,1.0));
+
+    color = mix(color,
+                vec3(0.5,0.7,0.8),
+               clamp(length(q),0.0,1.0));
+
+    color = mix(color,
+                vec3(.0,0.4,.4),
+               clamp(length(r.x),0.0,1.0));
+        finalColor = vec4((f*f*f+.6*f*f+.5*f)*color,.2+st.y);
+    }
+</script>
+
+</body>
+</html>
